@@ -20,25 +20,60 @@ public class MB_Plane : MonoBehaviour
         CalculateMesh(_half);
     }
 
+
     void CalculateMesh(bool half)
     {
+        Vector3[] vertices = GenerateVerts();
+        int[] triangles = GenerateTries(half);
+
+        int triangleCount = triangles.Length / 3;
+
         Mesh = new Mesh
         {
             name = "GeneratedMesh",
-
-            vertices = GenerateVerts(),
-            triangles = GenerateTries(half)
+            vertices = vertices,
+            subMeshCount = triangleCount
         };
-     
+
+        // Un sous-mesh par triangle
+        for (int i = 0; i < triangleCount; i++)
+        {
+            Mesh.SetTriangles(new int[]
+            {
+                triangles[i * 3],
+                triangles[i * 3 + 1],
+                triangles[i * 3 + 2]
+            }, i);
+        }
+
         Mesh.RecalculateNormals();
         Mesh.RecalculateBounds();
 
-        MeshFilter = gameObject.GetComponent<MeshFilter>();
+        MeshFilter = GetComponent<MeshFilter>();
 
         if (MeshFilter == null)
             MeshFilter = gameObject.AddComponent<MeshFilter>();
-        MeshFilter.mesh = Mesh;
+
+        MeshFilter.sharedMesh = Mesh;
+
+        // Un matériau par sous-mesh
+        MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
+        Material[] materials = new Material[triangleCount];
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+
+        if (shader == null)
+            shader = Shader.Find("Standard");
+
+        for (int i = 0; i < triangleCount; i++)
+        {
+            materials[i] = new Material(shader);
+            materials[i].color = Random.ColorHSV();
+        }
+
+        meshRenderer.sharedMaterials = materials;
     }
+
 
     Vector3[] GenerateVerts()
     {
