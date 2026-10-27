@@ -25,11 +25,8 @@ public class MB_PlaneSubdiv : MonoBehaviour
     }
 
     void CalculateSubdivMesh()
-    {
-        float size_x = width / colonnes;
-        float size_y = height / lignes;
-
-         Vector3[] vertices = GenerateVerts(size_x,size_y);
+    {       
+        Vector3[] vertices = GenerateVerts();
         int[] triangles = GenerateTries();
 
         int triangleCount = triangles.Length / 3;
@@ -82,13 +79,14 @@ public class MB_PlaneSubdiv : MonoBehaviour
     /// <summary>
     /// Calcul la position des points par rapport aux dimensions souhaités et le nombres de lignes et de colonnes attendues. 
     /// </summary>
-    /// <param name="size_x">Distance entre chaque point horizontal en fonction de width</param>
-    /// <param name="size_y">Distance entre chaque point vertical en fonction de height</param>
-    /// <returns></returns>
-    Vector3[] GenerateVerts(float size_x, float size_y)
+    /// <returns>return une liste de points 3D</returns>
+    Vector3[] GenerateVerts()
     {
+        float size_x = width / colonnes;
+        float size_y = height / lignes;
+
         List<Vector3> array = new List<Vector3>();
-       float y = height/2;
+        float y = height/2;
 
         for(int i = 0; i <= lignes; ++i)
         {
