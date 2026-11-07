@@ -32,11 +32,18 @@ public class MB_Cone : MonoBehaviour
     void CalculateMesh()
     {
         ClampValues();
-        _mesh = new Mesh
+        _mesh =  truncatedHeight == 0 ?
+        new Mesh
         {
             name = "GeneratedMesh",
             vertices = GenerateVerts(),
             triangles =  GenerateTries()
+        }: 
+        new Mesh
+        {
+            name = "GeneratedMesh",
+            vertices = GenerateVertsTruncated(),
+            triangles =  GenerateTriesTruncated()
         };
 
         _mesh.RecalculateNormals();
@@ -56,7 +63,7 @@ public class MB_Cone : MonoBehaviour
 
     Vector3[] GenerateVerts()
     {
-        Vector3[] vertices = new Vector3[m + 2];
+        Vector3[] vertices =   new Vector3[m + 2];
 
         for (int i = 0; i < m; i++)
         {
@@ -65,18 +72,32 @@ public class MB_Cone : MonoBehaviour
         }
 
         vertices[m]     = Vector3.zero; 
-        vertices[m + 1] = new Vector3(
-            0,
-            0,
-            truncatedHeight <= 0 ? height : truncatedHeight
-        );
-        Debug.Log( vertices[m + 1]);
+        vertices[m + 1] = new Vector3(0, 0, height);
+
+        return vertices;
+    }
+
+    Vector3[] GenerateVertsTruncated()
+    {
+        Vector3[] vertices = new Vector3[2 * m + 2];
+        float radiusTop = radius * truncatedHeight / height;
+        float newHeight = height - truncatedHeight;
+
+        for (int i = 0; i < m; i++)
+        {
+            double theta = 2 * Math.PI * i / m;
+            vertices[i]  = new Circle(0, radius, theta).coord;
+            vertices[i + m]  = new Circle(newHeight, radiusTop, theta).coord;           
+        }
+
+        vertices[2 * m]     = Vector3.zero; 
+        vertices[2 * m + 1] = new Vector3(0, 0, newHeight);
         return vertices;
     }
 
     int[] GenerateTries()
     {
-        const int IndicesParTranche = 6; // 2 triangles × 3 indices
+        const int IndicesParTranche =  6; // 2 triangles × 3 indices
         int[] triangles = new int[m * IndicesParTranche];
         int centerBot = m;
         int centerTop = m + 1;
@@ -98,6 +119,35 @@ public class MB_Cone : MonoBehaviour
         return triangles;
     }
 
+    int[] GenerateTriesTruncated()
+    {
+        const int IndicesParTranche = 12; // 4 triangles × 3 indices
+        int[] triangles = new int[m * IndicesParTranche];
+        int centerBot = 2 * m;
+        int centerTop = 2 * m + 1;
+
+        for (int i = 0; i < m; i++)
+        {
+            int next = (i + 1) % m;
+
+            int b0 = i,     b1 = next;
+            int t0 = i + m, t1 = next + m;
+
+            // Début du bloc de 12 indices réservé à la tranche i
+            // (4 triangles × 3 indices : 2 pour la paroi, 1 par bouchon)
+            int k = i * IndicesParTranche; 
+
+            triangles[k]     = b0; triangles[k + 1]  = b1; triangles[k + 2]  = t0;
+            triangles[k + 3] = b1; triangles[k + 4]  = t1; triangles[k + 5]  = t0;
+
+            triangles[k + 6] = centerBot; triangles[k + 7] = b1; triangles[k + 8] = b0;
+
+            triangles[k + 9] = centerTop; triangles[k + 10] = t0; triangles[k + 11] = t1;
+        }
+
+        return triangles;
+    }
+
     void OnValidate()
     {
         CalculateMesh();
@@ -110,6 +160,9 @@ public class MB_Cone : MonoBehaviour
 
     void ClampValues()
     {
-        Mathf.Clamp(truncatedHeight,0, height);
+        m = Mathf.Max(3, m);
+        height = Mathf.Max(0.001f, height);
+        radius = Mathf.Max(0f, radius);
+        truncatedHeight = Mathf.Clamp(truncatedHeight,0, height);
     }
 }
