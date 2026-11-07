@@ -2,6 +2,7 @@ using System;
 using Unity.Mathematics;
 using UnityEngine;
 
+
 [RequireComponent(typeof(MeshRenderer))]
 [ExecuteInEditMode]
 public class MB_Cylinder : MonoBehaviour
@@ -18,11 +19,11 @@ public class MB_Cylinder : MonoBehaviour
 
     public bool colored = false;
 
-    struct Plane
+    struct Circle
     {
        public Vector3 coord;
 
-        public Plane (float h, float r, double theta)
+        public Circle (float h, float r, double theta)
         {
             coord.x = (float)(r * Math.Cos(theta));
             coord.y = (float)(r * Math.Sin(theta));
@@ -75,7 +76,7 @@ public class MB_Cylinder : MonoBehaviour
             MeshFilter.sharedMesh = Mesh;
 
             MeshRenderer meshRendererColored = GetComponent<MeshRenderer>();
-            meshRendererColored.sharedMaterials = randomsMaterials(triangleCount);
+            meshRendererColored.sharedMaterials = CreateMaterial.randomsMaterials(triangleCount);
             return;
         }
 
@@ -95,7 +96,7 @@ public class MB_Cylinder : MonoBehaviour
         MeshFilter.sharedMesh = Mesh;
 
         MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
-        Material mat = CreateMaterial(Color.cyan);
+        Material mat = CreateMaterial.AddMaterial(Color.cyan);
         mat.SetFloat("_WorkflowMode", 0f);
         mat.SetFloat("_Smoothness", 0f);
         meshRenderer.sharedMaterials = new Material[] { mat };
@@ -109,8 +110,8 @@ public class MB_Cylinder : MonoBehaviour
         for (int i = 0; i < m; i++)
         {
             double theta = 2 * Math.PI * i / m;
-            vertices[i]     = new Plane(-height, radius, theta).coord;
-            vertices[i + m] = new Plane( height, radius, theta).coord;
+            vertices[i]     = new Circle(-height, radius, theta).coord;
+            vertices[i + m] = new Circle( height, radius, theta).coord;
         }
 
         vertices[2 * m]     = new Vector3(0, 0, -height / 2); // centre bas
@@ -153,33 +154,6 @@ public class MB_Cylinder : MonoBehaviour
         CalculateMesh(colored);
     }
 
-    Material CreateMaterial(Color color)
-    {
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null)
-            shader = Shader.Find("Standard");
-
-        return new Material(shader) { color = color};
-    }
-
-    Material[] randomsMaterials(int triesCount)
-    {
-        // Un matériau par sous-mesh
-        Material[] materials = new Material[triesCount];
-
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-
-        if (shader == null)
-            shader = Shader.Find("Standard");
-
-        for (int i = 0; i < triesCount; i++)
-        {
-            materials[i] = new Material(shader)
-            {
-                color = UnityEngine.Random.ColorHSV()
-            };
-        }
-        return materials;
-    }
+    
 
 }
