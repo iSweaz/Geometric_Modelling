@@ -94,6 +94,7 @@ public class MeshOff
                 float.Parse(vector[2], CultureInfo.InvariantCulture));
         }
 
+        vertices = CenterMesh(vertices);
 
         int[] triangles = new int[sizeFaces * 3];
         for (int v = sizeVertices + 2, i = 0; 
@@ -115,4 +116,15 @@ public class MeshOff
         };
     }
 
+    Vector3[] CenterMesh(Vector3[] vertices)
+    {
+        Vector3 CG =  Vector3.zero;
+        Array.ForEach(vertices, i => CG += i);
+        CG /= vertices.Length;
+
+        for(int i = 0; i < vertices.Length; i++)
+            vertices[i] -= CG; 
+        
+        return vertices;
+    }
 }
