@@ -1,45 +1,90 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class MeshOff
 {   
     public class Edge
     {
-        private Vector3[] edge;
-        public Edge(Vector3 vector1, Vector3 vector2)
+        public Vector3 edge;
+        public Edge(Vector3 p1, Vector3 p2)
         {
-            edge = new Vector3[2];
-            edge[0] = vector1;
-            edge[1] = vector2;
+            edge = p2 - p1;
         }
     }
 
     public class Triangles
     {
-        public Vector3 p1,p2,p3;
-        public Triangles(Vector3 p1, Vector3 p2, Vector3 p3)
-        {            
+        public int p1, p2, p3;
+        public Vector3 v1, v2, v3;
+
+        public Triangles(int p1, int p2, int p3)
+        {
             this.p1 = p1;
             this.p2 = p2;
             this.p3 = p3;
         }
+
+        public Triangles(Vector3 v1, Vector3 v2, Vector3 v3)
+        {
+            this.v1 = v1;
+            this.v2 = v2;
+            this.v3 = v3;
+        }
+
+        public int[] IntArray() => new int[]{p1,p2,p3};
+        public Vector3[] VecArray() => new Vector3[]{v1,v2,v3};
     }
 
-    public struct MeshStruct
+    public class MeshData
     {   
-        public Vector3[] coordinates;
-        public Edge[] edges;
-        public Triangles[] faces;
-        public MeshStruct(Vector3[] coordinates,Edge[] edges, Triangles[] faces)
+        public Vector3[] Vertices { get; private set; }
+        public Edge[] Edges { get; private set; }
+        public Triangles[] Triangles { get; private set; }
+
+        public MeshData(Vector3[] vertices, Edge[] edges, Triangles[] triangles)
         {
-            this.coordinates = coordinates;
-            this.edges = edges;
-            this.faces = faces;
+            Vertices = vertices;
+            Edges = edges;
+            Triangles = triangles;
+        }
+
+        public MeshData(Mesh mesh)
+        {
+            Vertices = mesh.vertices;
+            Edges = Array.Empty<Edge>();
+            Triangles = SetTriangles(mesh.triangles);
+        }
+
+        public void SetVertices(Vector3[] vertices)
+        {
+            Vertices = vertices;
+        }
+
+        public void SetEdges(Edge[] edges)
+        {
+            Edges = edges;
+        }
+
+        public Triangles[] SetTriangles(int[] indices)
+        {
+            if (indices.Length % 3 != 0)
+                throw new ArgumentException("The number of indices must be divisible by 3.");
+
+            Triangles[] result = new Triangles[indices.Length/3];
+            int i = 0;
+            while (i < indices.Length)
+            {
+                result[i] = new Triangles(
+                    indices[i],
+                    indices[i+1],
+                    indices[i+2]
+                    ); 
+                i += 3;
+            }
+            return result;
         }
     }
 
@@ -81,8 +126,9 @@ public class MeshOff
         int sizeVertices = int.Parse(MeshInfo[0]);
         int sizeFaces = int.Parse(MeshInfo[1]);
 
-        // string[] vectorsText = new string[sizeVertices]; // other version with exclusive input at the end, + use more memory : string[] vectors = elements[2..(sizeVertices + 2)]; 
+        // string[] vectorsText = new string[sizeVertices]; 
         // Array.Copy(elements, 2, vectorsText, 0, sizeVertices);
+        // other version with exclusive input at the end : string[] vectors = elements[2..(sizeVertices + 2)]; 
 
         Vector3[] vertices = new Vector3[sizeVertices];
         for(int v = 0; v < sizeVertices; v++)
@@ -96,32 +142,30 @@ public class MeshOff
 
         vertices = CenterMesh(vertices);
 
-        Triangles[] trig = new Triangles[sizeFaces];
-        int[] triangles = new int[sizeFaces * 3];
+        Triangles[] triangles = new Triangles[sizeFaces];
         for (int v = sizeVertices + 2, i = 0; 
             v < elements.Length; 
             v++, i++)
         {
             string[] index = elements[v].Split(" ");
-            int k = i * 3;
-            triangles[k] = int.Parse(index[1]);
-            triangles[k + 1] = int.Parse(index[2]);
-            triangles[k + 2] = int.Parse(index[3]);
-            trig[i] = new Triangles(
-                vertices[int.Parse(index[1])],
-                vertices[int.Parse(index[2])],
-                vertices[int.Parse(index[3])]
+            
+            triangles[i] = new Triangles(
+                int.Parse(index[1]),
+                int.Parse(index[2]),
+                int.Parse(index[3])
             );
         }
 
-        
+        int[] indexTriangles = triangles
+            .SelectMany(t => t.IntArray())
+            .ToArray();
 
         return new Mesh
         {
             name = "GeneratedMesh",
             vertices = vertices,
-            triangles = triangles,
-            normals = CalculateNormal(vertices)
+            triangles = indexTriangles,
+            normals = CalculateNormalWithVertices(vertices)
         };
     }
 
@@ -159,14 +203,14 @@ public class MeshOff
     }
 
     //https://wikis.khronos.org/opengl/Calculating_a_Surface_Normal
-    void CalculateNormal(out Vector3[] normals, Triangles[] triangles)
+    Vector3[] CalculateNormalWithTriangles(Triangles[] triangles)
     {
-        normals = new Vector3[triangles.Length];
+        Vector3[] normals = new Vector3[triangles.Length];
         for(int i = 0; i < triangles.Length; i++)
         {
             Triangles trig = triangles[i];
-            Vector3  u = trig.p2 - trig.p1;
-            Vector3  v = trig.p3 - trig.p1;
+            Vector3  u = trig.v2 - trig.v1;
+            Vector3  v = trig.v3 - trig.v1;
 
             normals[i] = new Vector3(
                 u.y * v.z - u.z * v.y,
@@ -174,10 +218,11 @@ public class MeshOff
                 u.x * v.y - u.y * v.x
             );
         }
+        return normals;
     }
 
     //https://wikis.khronos.org/opengl/Calculating_a_Surface_Normal   Newell's Method
-    Vector3[] CalculateNormal(Vector3[] vertices)
+    Vector3[] CalculateNormalWithVertices(Vector3[] vertices)
     {
         Vector3[] normals = new Vector3[vertices.Length];
         for(int i = 0; i < vertices.Length; i++)
