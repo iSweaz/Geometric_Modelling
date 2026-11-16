@@ -125,6 +125,27 @@ public class MeshOff
         for(int i = 0; i < vertices.Length; i++)
             vertices[i] -= CG; 
         
+        return NormalizeMesh(vertices);
+    }
+
+    Vector3[] NormalizeMesh(Vector3[] vertices)
+    {
+        float max = 0f;
+        foreach (Vector3 vertex in vertices)
+        {
+            max = Mathf.Max(max,
+                Mathf.Abs(vertex.x),
+                Mathf.Abs(vertex.y),
+                Mathf.Abs(vertex.z));
+        }
+
+        if (max > 0f)
+        {
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                vertices[i] /= max;
+            }
+        }
         return vertices;
     }
 }
