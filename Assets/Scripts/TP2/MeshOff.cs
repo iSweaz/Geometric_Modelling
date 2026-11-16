@@ -8,10 +8,16 @@ public class MeshOff
 {   
     public class Edge
     {
-        public Vector3 edge;
+        public Vector3 P1 { get; private set; }
+        public Vector3 P2 { get; private set; }
+
+        public Vector3 Direction => P2 - P1;
+        public float Length => Direction.magnitude;
+
         public Edge(Vector3 p1, Vector3 p2)
         {
-            edge = p2 - p1;
+            P1 = p1;
+            P2 = p2;
         }
     }
 
