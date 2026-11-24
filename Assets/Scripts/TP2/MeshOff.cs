@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -6,6 +7,7 @@ using UnityEngine;
 
 public class MeshOff
 {   
+    private string[] verticesData, trianglesData, normalsData;
     public class Edge
     {
         public Vector3 P1 { get; private set; }
@@ -104,6 +106,10 @@ public class MeshOff
 
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
+
+        string[] newTriangles = trianglesData, newVertices = verticesData;
+        damageMesh(ref newTriangles, ref newVertices);
+        WriteFile(fileName, newVertices, newTriangles);
     }
 
     string[] ReadFile(string fileName)
@@ -125,6 +131,29 @@ public class MeshOff
         }
     }
 
+    string[] WriteFile(string fileName, string[] verticesData, string[] trianglesData)
+    {
+        int verticeSize     = verticesData.Length;
+        int trianglesSize   = trianglesData.Length;
+        int normalsSize     = normalsData.Length;
+
+            
+
+        string path = Application.dataPath + "/Mesh_off/" +  "edited_" + fileName;
+        using (StreamWriter sw = new StreamWriter(path))
+        {
+            sw.WriteLine(@$"OFF
+{verticeSize} {trianglesSize} 0 {normalsSize}");
+            foreach(string vert in verticesData)
+                sw.WriteLine(vert);
+            foreach(string trig in trianglesData)
+                sw.WriteLine(trig);
+            foreach(string normal in normalsData)
+                sw.WriteLine(normal);
+        }
+        return null;
+    }
+
     Mesh CalculateMesh(string[] elements)
     {
         string[] MeshInfo = elements[1].Split(" ");      
@@ -137,9 +166,11 @@ public class MeshOff
         // other version with exclusive input at the end : string[] vectors = elements[2..(sizeVertices + 2)]; 
 
         Vector3[] vertices = new Vector3[sizeVertices];
+        verticesData = new string[sizeVertices];
         for(int v = 0; v < sizeVertices; v++)
         {
-            string []vector  = elements[v + 2].Split(" ");
+            verticesData[v] = elements[v + 2];
+            string []vector  = verticesData[v].Split(" ");
             vertices[v] = new Vector3(
                 float.Parse(vector[0], CultureInfo.InvariantCulture),
                 float.Parse(vector[1], CultureInfo.InvariantCulture),
@@ -148,12 +179,14 @@ public class MeshOff
 
         vertices = CenterMesh(vertices);
 
+        trianglesData = new string[sizeFaces];
         Triangles[] triangles = new Triangles[sizeFaces];
         for (int v = sizeVertices + 2, i = 0; 
             v < elements.Length; 
             v++, i++)
         {
-            string[] index = elements[v].Split(" ");
+            trianglesData[i] = elements[v];
+            string[] index = trianglesData[i].Split(" ");
             
             triangles[i] = new Triangles(
                 int.Parse(index[1]),
@@ -165,13 +198,20 @@ public class MeshOff
         int[] indexTriangles = triangles
             .SelectMany(t => t.IntArray())
             .ToArray();
+        
+        Vector3[] normals = CalculateNormalWithVertices(vertices);
+        normalsData = new string[normals.Length];
+        for(int i = 0; i < normals.Length; i++)
+        {
+            normalsData[i] = vertices[i].x + " " + vertices[i].y + " " + vertices[i].z;
+        }            
 
         return new Mesh
         {
             name = "GeneratedMesh",
             vertices = vertices,
             triangles = indexTriangles,
-            normals = CalculateNormalWithVertices(vertices)
+            normals = normals
         };
     }
 
@@ -245,4 +285,60 @@ public class MeshOff
         return normals;
     }
 
+    void damageMesh(ref string[] triangles, ref string[] vertices, int n = 1500)
+    {
+        n = Mathf.Clamp(n, 0, triangles.Length);
+
+        List<string> remainingTriangles = new List<string>(triangles);
+        
+        for (int i = 0; i < n; i++)
+        {
+            int index = UnityEngine.Random.Range(0, remainingTriangles.Count);
+            remainingTriangles.RemoveAt(index);
+        }
+
+        //Optimized for searching, HashSet is a List with no duplicate members. Can't use indices with a HashSet
+        //unordered_set <T> for cpp
+        HashSet<int> usedVertices = new HashSet<int>();
+
+        foreach (string triangle in remainingTriangles)
+        {
+            string[] indices = triangle.Split(" ");
+
+            for (int i = 1; i <= 3; i++)
+                usedVertices.Add(int.Parse(indices[i]));
+        }
+
+        int[] indexMapping = new int[vertices.Length];
+        List<string> newVertices = new List<string>();
+
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            indexMapping[i] = -1;
+
+            if (usedVertices.Contains(i))
+            {
+                indexMapping[i] = newVertices.Count;
+                newVertices.Add(vertices[i]);
+            }
+        }
+
+        List<string> newTriangles = new List<string>();
+
+        foreach (string triangle in remainingTriangles)
+        {
+            string[] indices = triangle.Split(" ");
+
+            for (int i = 1; i <= 3; i++)
+            {
+                int oldIndex = int.Parse(indices[i]);
+                indices[i] = indexMapping[oldIndex].ToString();
+            }
+
+            newTriangles.Add(string.Join(" ", indices));
+        }
+
+        vertices = newVertices.ToArray();
+        triangles = newTriangles.ToArray();
+    }
 }
